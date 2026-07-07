@@ -2,22 +2,29 @@ import { useChat } from "@/hooks/useChat";
 import Header from "@/components/layout/Header";
 import ChatWindow from "@/components/chat/ChatWindow";
 import ChatInput from "@/components/chat/ChatInput";
-// import ChatWindow from "!/components/chat/ChatWindow";
 
-function App() {
-  const { state, sendFile } = useChat();
+export default function App() {
+  const { state, sendMessage } = useChat();
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       <Header />
-      <ChatWindow messages={state.messages} isLoading={state.isLoading} />
-      <ChatInput onSendFile={sendFile} isLoading={state.isLoading} />
-      {state.error && (
-        <div className="px-4 pb-2 text-sm text-destructive text-center">
-          {state.error}
+
+      <div className="flex-1 overflow-y-auto w-full">
+        <div className="mx-auto max-w-3xl h-full flex flex-col">
+          <ChatWindow messages={state.messages} isLoading={state.isLoading} />
         </div>
-      )}
+      </div>
+
+      <div className="w-full pb-4">
+        {/* CRITICAL FIXED PROP BINDING HERE */}
+        <ChatInput onSubmit={sendMessage} isLoading={state.isLoading} />
+        {state.error && (
+          <div className="max-w-3xl mx-auto px-4 mt-2 text-xs text-destructive text-center">
+            {state.error}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-export default App;

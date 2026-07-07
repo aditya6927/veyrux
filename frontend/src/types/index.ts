@@ -2,7 +2,7 @@ export type MessageRole = "user" | "assistant" | "system";
 
 export interface Message {
   id: string;
-  role: MessageRole;
+  role: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
 }
