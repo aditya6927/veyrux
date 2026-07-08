@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Message, ChatState } from "../types";
-import { analyzeFile } from "../services/api";
+import { analyzeFile, sendChatMessage } from "../services/api";
 
 interface ChatSubmitPayload {
   message: string;
@@ -26,28 +26,41 @@ export function useChat() {
 
   async function sendMessage(payload: ChatSubmitPayload) {
     const { message, files } = payload;
+
+    // Guard check: don't submit if completely empty
     if (!message.trim() && files.length === 0) return;
 
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-    // Format display string
+    // Dynamic formatting for the UI bubble text
     let userMessageContent = message;
+
     if (files.length > 0) {
-      const fileNames = files.map(f => `📄 ${f.name}`).join(", ");
-      userMessageContent = message 
+      const fileNames = files.map((f) => `📄 ${f.name}`).join(", ");
+      // If user wrote text + file, show both. If just file, show "Uploaded: file.pdf"
+      userMessageContent = message
         ? `${message}\n\n*Attached: ${fileNames}*`
         : `Uploaded: ${fileNames}`;
     }
-    
+
+    // Pass the styled content string to your screen state!
     addMessage("user", userMessageContent);
 
     try {
       let result = "";
+
       if (files.length > 0) {
-        result = await analyzeFile(files[0]); 
+        // Keep using your old file endpoint for now if files are dropped
+        result = await analyzeFile(files[0]);
       } else {
-        result = `You said: "${message}". (Standard text chat backend integration goes here!)`;
+        // Pass the current state.messages down so the API wrapper can append and filter it
+        result = await sendChatMessage({
+          message,
+          files,
+          history: state.messages,
+        });
       }
+
       addMessage("assistant", result);
     } catch (err: any) {
       setState((prev) => ({
@@ -59,5 +72,9 @@ export function useChat() {
     }
   }
 
-  return { state, sendMessage, clearError: () => setState(p => ({ ...p, error: null })) };
+  return {
+    state,
+    sendMessage,
+    clearError: () => setState((p) => ({ ...p, error: null })),
+  };
 }

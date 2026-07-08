@@ -3,12 +3,13 @@ from google.genai import types
 from app.config import settings
 from typing import Any
 from app.exceptions import ServiceError
-from app.prompts import analyze
+from app.prompts import analyze, chat
 from app.models.document import (
     ParsedDocument,
     ContentType,
     ContentBlock
 )
+from app.models.chat import ChatMessage, ChatRole
 
 def _text_block(payload: list, block: ContentBlock) -> None:
     if(block.text_content):
@@ -60,6 +61,30 @@ class GeminiService:
 
             return response.text
         
+        except ServiceError:
+            raise
+        except Exception as e:
+            raise ServiceError(f"Gemini request failed: {str(e)}")
+    
+    def chat(self, messages: list[ChatMessage]) -> str:
+        try:
+            contents = [
+                types.Content(
+                    role  = 'model' if msg.role == ChatRole.ASSISTANT else 'user',
+                    # Wrap the text string inside the types.Part object inside a list
+                    parts = [types.Part(text=msg.content)] 
+                )
+                for msg in messages
+            ]
+
+            response = self.client.models.generate_content(
+                model    = self.model,
+                contents = contents,
+                config   = types.GenerateContentConfig(system_instruction=chat.prompt), # Note: system_instruction (singular)
+            )
+
+            return response.text
+
         except ServiceError:
             raise
         except Exception as e:

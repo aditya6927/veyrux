@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.parsers import parser
 from app.services.gemini_service import gemini_service
 from app.exceptions import FileTooLarge, CorruptedFile, UnsupportedFileType, ServiceError
+from app.models.chat import ChatRequest
 
 app = FastAPI(title = 'Veyrux')
 
@@ -36,4 +37,15 @@ async def analyze_file(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f'Critical interal failure: {str(e)}')
 
+    return {"result": response}
+
+@app.post('/chat')
+async def chat_endpoint(request: ChatRequest):
+    try:
+        response = gemini_service.chat(request.messages)
+    except ServiceError as e:
+        raise HTTPException(status_code = 502, detail = f'Model gateway error: {e.message}')
+    except Exception as e:
+        raise HTTPException(status_code = 500, detail = f'Critical internal failure: {str(e)}')
+    
     return {"result": response}
