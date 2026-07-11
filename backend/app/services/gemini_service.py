@@ -42,21 +42,27 @@ class GeminiService:
         payload = []
 
         for page in doc.pages:
+            payload.append(f"\n========== PAGE {page.number} ==========\n")
+
             for block in page.blocks:
                 builder = BLOCK_BUILDERS.get(block.content_type)
                 if builder:
                     builder(payload, block)
+
+            payload.append(f"\n========== END PAGE {page.number} ==========\n")
 
         return payload
 
     def analyze_content(self, doc: ParsedDocument) -> str:
         try:
             payload = self._build_payload(doc)
-            payload.append(analyze.prompt)
 
             response = self.client.models.generate_content(
-                model    = self.model,
-                contents = payload
+                model=self.model,
+                contents=payload,
+                config=types.GenerateContentConfig(
+                    system_instruction=analyze.prompt
+                ),
             )
 
             return response.text

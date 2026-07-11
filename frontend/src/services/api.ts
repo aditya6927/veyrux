@@ -28,7 +28,7 @@ export async function analyzeFile(file: File): Promise<string> {
  * 2. NEW: Handles conversational text memory (JSON Arrays)
  * Hits the backend /chat endpoint
  */
-interface ChatSubmitPayload {
+interface ChatRequest {
   message: string;
   files: File[];
   history: Message[];
@@ -37,7 +37,7 @@ interface ChatSubmitPayload {
 export async function sendChatMessage({
   message,
   history,
-}: ChatSubmitPayload): Promise<string> {
+}: ChatRequest): Promise<string> {
   // Construct the full history array including the fresh message turn
   const fullHistory = [...history, { role: "user", content: message }];
 

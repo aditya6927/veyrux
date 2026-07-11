@@ -3,13 +3,13 @@ import { cn } from "@/lib/utils";
 import { Paperclip, Send, Loader2, X, FileText, Image } from "lucide-react";
 
 // Point 9: Unified payload structure for future-proofing
-interface ChatSubmitPayload {
+interface ChatInputData {
   message: string;
   files: File[];
 }
 
 interface ChatInputProps {
-  onSubmit: (payload: ChatSubmitPayload) => void;
+  onSubmit: (payload: ChatInputData) => void;
   isLoading: boolean;
   loadingStatus?: string; // Point 7: Distinguish between "Thinking...", "Reading PDF...", etc.
 }

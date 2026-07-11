@@ -83,7 +83,7 @@ async def parse(file: UploadFile, mime_type: str) -> ParsedDocument:
                 if text:
                     blocks.append(ContentBlock(
                         content_type    = ContentType.TEXT,
-                        text_content    = f'Page {page_number}\n{text}',
+                        text_content    = text,
                         mime_type       = 'text/plain'
                     ))
                     total_text_blocks += 1

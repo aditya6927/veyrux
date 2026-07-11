@@ -1,8 +1,8 @@
 import { useState } from "react";
-import type { Message, ChatState } from "../types";
-import { analyzeFile, sendChatMessage } from "../services/api";
+import type { Message, ChatState } from "@/types";
+import { analyzeFile, sendChatMessage } from "@/services/api";
 
-interface ChatSubmitPayload {
+interface SendMessageOptions {
   message: string;
   files: File[];
 }
@@ -24,7 +24,7 @@ export function useChat() {
     setState((prev) => ({ ...prev, messages: [...prev.messages, newMessage] }));
   }
 
-  async function sendMessage(payload: ChatSubmitPayload) {
+  async function sendMessage(payload: SendMessageOptions) {
     const { message, files } = payload;
 
     // Guard check: don't submit if completely empty
