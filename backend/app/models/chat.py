@@ -14,4 +14,3 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
-    file_content: Optional[Any] | None = None

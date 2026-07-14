@@ -23,11 +23,8 @@ def root():
 async def analyze_file(file: UploadFile = File(...)):
     try:
         doc = await parser(file)
-        payload_blocks = gemini_service.analyze_content(doc)
+        response = gemini_service.analyze_content(doc)
 
-        text_content = "".join([b for b in payload_blocks if isinstance(b, str)])
-
-    # http translation
     except FileTooLarge as e:
         raise HTTPException(status_code = 413, detail = e.message)
     except UnsupportedFileType as e:
@@ -39,7 +36,7 @@ async def analyze_file(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f'Critical interal failure: {str(e)}')
 
-    return {"result": text_content}
+    return {"result": response}
 
 @app.post('/chat')
 async def chat_endpoint(request: ChatRequest):
