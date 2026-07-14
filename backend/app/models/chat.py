@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from enum import Enum
+from typing import Optional, Any
 
 class ChatRole(str, Enum):
     USER = 'user'
@@ -7,8 +8,10 @@ class ChatRole(str, Enum):
     # SYSTEM = 'system'
 
 class ChatMessage(BaseModel):
+    id: Optional[str] = None
     role: ChatRole
     content: str
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
+    file_content: Optional[Any] | None = None

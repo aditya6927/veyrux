@@ -1,7 +1,7 @@
 from google import genai
 from google.genai import types
 from app.config import settings
-from typing import Any
+from typing import Optional, Any
 from app.exceptions import ServiceError
 from app.prompts import analyze, chat
 from app.models.document import (
@@ -72,21 +72,47 @@ class GeminiService:
         except Exception as e:
             raise ServiceError(f"Gemini request failed: {str(e)}")
     
-    def chat(self, messages: list[ChatMessage]) -> str:
+    def chat(self, messages: list[ChatMessage], doc: Optional[ParsedDocument] = None) -> str:
         try:
-            contents = [
-                types.Content(
-                    role  = 'model' if msg.role == ChatRole.ASSISTANT else 'user',
-                    # Wrap the text string inside the types.Part object inside a list
-                    parts = [types.Part(text=msg.content)] 
+            contents = []
+            
+            # 1. Transform chat history messages into structural Gemini Content elements
+            for i, msg in enumerate(messages):
+                is_model = msg.role == ChatRole.ASSISTANT
+                parts = []
+                
+                # If this is the final user message and a document is present, inject the context
+                if not is_model and i == len(messages) - 1 and doc:
+                    # Leverage your existing structural block builder to unpack the document
+                    doc_payload = self._build_payload(doc)
+                    
+                    # Wrap the document contents in clear operational context tags
+                    parts.append(types.Part(text="[CONTEXT DOCUMENT UPLOADED BY USER]\n"))
+                    for element in doc_payload:
+                        if isinstance(element, str):
+                            parts.append(types.Part(text=element))
+                        else:
+                            # Handles image block parts (types.Part) seamlessly!
+                            parts.append(element)
+                    parts.append(types.Part(text="\n[END OF CONTEXT DOCUMENT]\n\nUser Question: "))
+                
+                # Append the core textual query message
+                parts.append(types.Part(text=msg.content))
+                
+                contents.append(
+                    types.Content(
+                        role="model" if is_model else "user",
+                        parts=parts
+                    )
                 )
-                for msg in messages
-            ]
 
+            # 2. Fire request to Gemini using your existing instruction sets
             response = self.client.models.generate_content(
-                model    = self.model,
-                contents = contents,
-                config   = types.GenerateContentConfig(system_instruction=chat.prompt), # Note: system_instruction (singular)
+                model=self.model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=chat.prompt
+                ),
             )
 
             return response.text

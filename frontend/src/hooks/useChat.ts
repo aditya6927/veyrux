@@ -55,9 +55,22 @@ export function useChat(
 
     try {
       let result = "";
+
       if (files.length > 0) {
-        result = await analyzeFile(files[0]);
+        // 1. Send the file to be extracted into raw text by the backend parser
+        const extractedDocumentText = await analyzeFile(files[0]);
+
+        // 2. Wrap that extracted text into a structured prompt context block
+        const contextualMessage = `[Document Context Attached]\n${extractedDocumentText}\n\n[End of Context]\nBased on the document context provided above, please handle the following request: ${message || "Provide an overall detailed summary of this file."}`;
+
+        // 3. Send the contextual text stream straight to the conversational history chat endpoint
+        result = await sendChatMessage({
+          message: contextualMessage,
+          files: [], // Clear out since it's already contextualized
+          history: messages,
+        });
       } else {
+        // Standard text interaction pipeline
         result = await sendChatMessage({
           message,
           files,
