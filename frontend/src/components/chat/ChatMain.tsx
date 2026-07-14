@@ -1,12 +1,36 @@
 import ChatWindow from "./ChatWindow";
 import ChatInput from "./ChatInput";
 import { useChat } from "@/hooks/useChat";
+import type { Message } from "@/types";
 
-export function ChatMain() {
-  const { state, sendMessage } = useChat();
+interface ChatMainProps {
+  activeConversationId: string;
+  messages: Message[];
+  isLoading: boolean;
+  onUpdateMessages: (updater: (prev: Message[]) => Message[]) => void;
+  onSetLoading: (id: string, loading: boolean) => void;
+  onGenerateTitle: (id: string, firstMessage: string) => void;
+}
+
+export function ChatMain({
+  activeConversationId,
+  messages,
+  isLoading,
+  onUpdateMessages,
+  onSetLoading,
+  onGenerateTitle,
+}: ChatMainProps) {
+  // Pass the conversation-specific loading state and updater directly to our custom hook
+  const { state, sendMessage } = useChat(
+    activeConversationId,
+    messages,
+    isLoading,
+    onUpdateMessages,
+    onSetLoading,
+    onGenerateTitle,
+  );
 
   return (
-    // Changed h-full to min-h-0 so it shrinks/fits perfectly within the remaining flex container space
     <div className="flex-1 flex flex-col min-w-0 min-h-0 w-full">
       {/* 1. Middle Message Feed Container */}
       <div className="flex-1 overflow-y-auto w-full min-h-0 scrollbar-thin">

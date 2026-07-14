@@ -1,5 +1,5 @@
 import { SidebarConversation } from "./SidebarConversation";
-import type { Conversation } from "./SidebarMain";
+import type { Conversation } from "@/types";
 
 interface SidebarConversationListProps {
   isExpanded: boolean;
@@ -7,6 +7,7 @@ interface SidebarConversationListProps {
   activeConversationID: string | null;
   searchQuery: string;
   onSelectChat: (id: string) => void;
+  onDeleteChat: (id: string) => void; // <-- Add onDeleteChat
 }
 
 export function SidebarConversationList({
@@ -15,6 +16,7 @@ export function SidebarConversationList({
   activeConversationID,
   searchQuery,
   onSelectChat,
+  onDeleteChat, // <-- Accept onDeleteChat
 }: SidebarConversationListProps) {
   // Completely remove the list from rendering when collapsed
   if (!isExpanded) return null;
@@ -28,6 +30,7 @@ export function SidebarConversationList({
           title={chat.title}
           isActive={activeConversationID === chat.id}
           onClick={() => onSelectChat(chat.id)}
+          onDelete={() => onDeleteChat(chat.id)} // <-- Pass it down
         />
       ))}
 

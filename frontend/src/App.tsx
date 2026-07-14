@@ -1,57 +1,42 @@
-import { useState } from "react";
 import Header from "@/components/layout/Header";
 import { ChatMain } from "@/components/chat/ChatMain";
-import {
-  type Conversation,
-  SidebarMain,
-} from "@/components/sidebar/SidebarMain";
-
-// 1. Temporary dummy conversations to style and verify the layout
-const DUMMY_CONVERSATIONS: Conversation[] = [
-  { id: "1", title: "Verilog Overview & FPGA Implementation" },
-  { id: "2", title: "Resume Review" },
-  { id: "3", title: "Graph Algorithms" },
-  { id: "4", title: "Veyrux Core Ideas" },
-  { id: "5", title: "Operating Systems Notes" },
-];
+import { SidebarMain } from "@/components/sidebar/SidebarMain";
+import { useConversations } from "@/hooks/useConversations";
 
 export default function App() {
-  // 2. Local state for mock UI integration testing
-  const [activeId, setActiveId] = useState<string | null>("1");
-  const [conversations, setConversations] =
-    useState<Conversation[]>(DUMMY_CONVERSATIONS);
-
-  const handleSelectChat = (id: string) => {
-    setActiveId(id);
-  };
-
-  const handleNewChat = () => {
-    const newChat: Conversation = {
-      id: Date.now().toString(),
-      title: "New Conversation",
-    };
-    setConversations([newChat, ...conversations]);
-    setActiveId(newChat.id);
-  };
+  const {
+    conversations,
+    activeId,
+    activeConversation,
+    createConversation,
+    selectConversation,
+    deleteConversation,
+    updateActiveMessages,
+    setConversationLoading,
+    generateConversationTitle,
+  } = useConversations();
 
   return (
-    // Base layout: Row container wrapper encompassing the entire screen
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      {/* LEFT: Mount the sidebar */}
       <SidebarMain
         conversations={conversations}
         activeConversationID={activeId}
-        onSelectChat={handleSelectChat}
-        onNewChat={handleNewChat}
+        onSelectChat={selectConversation}
+        onNewChat={createConversation}
+        onDeleteChat={deleteConversation} // <-- 1. Exposing deletion to Sidebar
       />
 
-      {/* RIGHT: Layout Group with Header + Chat Workspace */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
-        {/* Your separate Header file remains anchored here */}
         <Header />
 
-        {/* The isolated core messaging component */}
-        <ChatMain />
+        <ChatMain
+          activeConversationId={activeId} // <-- 2. Send activeId down
+          messages={activeConversation.messages}
+          isLoading={!!activeConversation.isLoading} // <-- 3. Pass conversation-bound loading state
+          onUpdateMessages={updateActiveMessages}
+          onSetLoading={setConversationLoading} // <-- 4. Pass down the loader updater
+          onGenerateTitle={generateConversationTitle}
+        />
       </div>
     </div>
   );

@@ -1,21 +1,17 @@
 import { useState } from "react";
+import type { Conversation } from "@/types";
 import { SidebarHeader } from "./SidebarHeader";
 import { SidebarNewChat } from "./SidebarNewChat";
 import { SidebarSearch } from "./SidebarSearch";
 import { SidebarConversationList } from "./SidebarConversationList";
 import { SidebarFooter } from "./SidebarFooter";
 
-// 1. Defined a proper conversation interface instead of any[]
-export interface Conversation {
-  id: string;
-  title: string;
-}
-
 interface SidebarProps {
   conversations: Conversation[];
   activeConversationID: string | null;
   onSelectChat: (conversationId: string) => void;
   onNewChat: () => void;
+  onDeleteChat: (conversationId: string) => void; // <-- Add deletion callback here
 }
 
 export function SidebarMain({
@@ -23,6 +19,7 @@ export function SidebarMain({
   activeConversationID,
   onSelectChat,
   onNewChat,
+  onDeleteChat, // <-- Accept callback
 }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,9 +56,10 @@ export function SidebarMain({
         activeConversationID={activeConversationID}
         searchQuery={searchQuery}
         onSelectChat={onSelectChat}
+        onDeleteChat={onDeleteChat} // <-- Pass deletion down to the child list
       />
 
-      {/* 5. DYNAMIC SPACER: Pushes the footer down when the conversation list is hidden */}
+      {/* 5. DYNAMIC SPACER */}
       {!isExpanded && <div className="flex-1" />}
 
       {/* 6. FOOTER */}
