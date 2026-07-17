@@ -24,6 +24,7 @@ async def analyze_file(file: UploadFile = File(...)):
     try:
         doc = await parser(file)
         response = gemini_service.analyze_content(doc)
+        chunks = gemini_service.chunk_document(doc)
 
     except FileTooLarge as e:
         raise HTTPException(status_code = 413, detail = e.message)
@@ -36,12 +37,12 @@ async def analyze_file(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f'Critical interal failure: {str(e)}')
 
-    return {"result": response}
+    return {"result": response, "chunks": chunks}
 
 @app.post('/chat')
 async def chat_endpoint(request: ChatRequest):
     try:
-        response = gemini_service.chat(request.messages)
+        response = gemini_service.chat(request.messages, request.chunks)
     except ServiceError as e:
         raise HTTPException(status_code = 502, detail = f'Model gateway error: {e.message}')
     except Exception as e:

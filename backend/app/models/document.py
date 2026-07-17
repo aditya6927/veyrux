@@ -40,3 +40,9 @@ class ParsedDocument(BaseModel):
     document_type: DocumentType
     pages:         list[Page]
     metadata:      dict[str, Any] = Field(default_factory=dict)
+
+class Chunk(BaseModel):
+    content: str
+    embedding: list[float]
+    source: str
+    page_number: int

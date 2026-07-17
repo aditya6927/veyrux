@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from enum import Enum
-from typing import Optional, Any
+from typing import Optional
+from app.models.document import Chunk
 
 class ChatRole(str, Enum):
     USER = 'user'
@@ -14,3 +15,4 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
+    chunks: Optional[list[Chunk]] = None
