@@ -1,3 +1,5 @@
+import type { ParsedFile } from "./document";
+
 export type MessageRole = "user" | "assistant" | "system";
 
 export interface Message {
@@ -18,4 +20,6 @@ export interface Conversation {
   id: string;
   title: string;
   messages: Message[];
+  documents: ParsedFile[]; // Track multiple files per conversation cleanly
+  isLoading?: boolean; // Handles conversation-specific loaders
 }

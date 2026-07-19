@@ -1,32 +1,39 @@
 import { useState, useEffect } from "react";
 import type { Conversation, Message } from "@/types";
-
-// Extends your conversation type to support an in-memory loading state
-export interface ExtendedConversation extends Conversation {
-  isLoading?: boolean;
-}
+import type { ParsedFile } from "@/types/document";
 
 const STORAGE_KEY = "veyrux_conversations";
 const ACTIVE_ID_KEY = "veyrux_active_id";
 
+function createEmptyConversation(): Conversation {
+  return {
+    id: crypto.randomUUID(),
+    title: "New Conversation",
+    messages: [],
+    documents: [],
+  };
+}
+
 export function useConversations() {
   // 1. Initialize conversations from localStorage or fall back to a default empty one
-  const [conversations, setConversations] = useState<ExtendedConversation[]>(
-    () => {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          if (parsed.length > 0) return parsed;
-        } catch (e) {
-          console.error("Failed to parse local conversations:", e);
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.length > 0) {
+          // Normalize conversations saved before the documents field existed
+          return parsed.map((conv: Conversation) => ({
+            ...conv,
+            documents: conv.documents ?? [],
+          }));
         }
+      } catch (e) {
+        console.error("Failed to parse local conversations:", e);
       }
-      return [
-        { id: crypto.randomUUID(), title: "New Conversation", messages: [] },
-      ];
-    },
-  );
+    }
+    return [createEmptyConversation()];
+  });
 
   // 2. Initialize activeId from localStorage or fall back to the first conversation
   const [activeId, setActiveId] = useState<string>(() => {
@@ -41,7 +48,12 @@ export function useConversations() {
   useEffect(() => {
     // Strip temporary 'isLoading' flags before saving to localStorage so they don't persist on refresh
     const cleanConversations = conversations.map(
-      ({ isLoading, ...rest }) => rest,
+      ({ id, title, messages, documents }) => ({
+        id,
+        title,
+        messages,
+        documents,
+      }),
     );
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cleanConversations));
   }, [conversations]);
@@ -62,11 +74,7 @@ export function useConversations() {
       return;
     }
 
-    const newConversation: ExtendedConversation = {
-      id: crypto.randomUUID(),
-      title: "New Conversation",
-      messages: [],
-    };
+    const newConversation = createEmptyConversation();
     setConversations((prev) => [newConversation, ...prev]);
     setActiveId(newConversation.id);
   }
@@ -78,11 +86,7 @@ export function useConversations() {
 
       // If we've deleted everything, yield a fresh new conversation
       if (filtered.length === 0) {
-        const fallback = {
-          id: crypto.randomUUID(),
-          title: "New Conversation",
-          messages: [],
-        };
+        const fallback = createEmptyConversation();
         setActiveId(fallback.id);
         return [fallback];
       }
@@ -107,6 +111,18 @@ export function useConversations() {
       prev.map((conv) =>
         conv.id === activeId
           ? { ...conv, messages: updater(conv.messages) }
+          : conv,
+      ),
+    );
+  }
+
+  // Bank a newly-parsed document's chunks onto the active conversation, so
+  // every future turn in it can retrieve against them - not just this one
+  function addDocumentToActive(document: ParsedFile) {
+    setConversations((prev) =>
+      prev.map((conv) =>
+        conv.id === activeId
+          ? { ...conv, documents: [...conv.documents, document] }
           : conv,
       ),
     );
@@ -146,7 +162,8 @@ export function useConversations() {
     selectConversation,
     deleteConversation,
     updateActiveMessages,
+    addDocumentToActive,
     setConversationLoading,
-    generateConversationTitle, // <-- Export this to use in App / ChatMain
+    generateConversationTitle,
   };
 }

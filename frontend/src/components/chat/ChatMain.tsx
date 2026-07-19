@@ -2,13 +2,16 @@ import ChatWindow from "./ChatWindow";
 import ChatInput from "./ChatInput";
 import { useChat } from "@/hooks/useChat";
 import type { Message } from "@/types";
+import type { Chunk, ParsedFile } from "@/types/document";
 
 interface ChatMainProps {
   activeConversationId: string;
   messages: Message[];
   isLoading: boolean;
+  chunks: Chunk[];
   onUpdateMessages: (updater: (prev: Message[]) => Message[]) => void;
   onSetLoading: (id: string, loading: boolean) => void;
+  onAddDocument: (document: ParsedFile) => void;
   onGenerateTitle: (id: string, firstMessage: string) => void;
 }
 
@@ -16,19 +19,23 @@ export function ChatMain({
   activeConversationId,
   messages,
   isLoading,
+  chunks,
   onUpdateMessages,
   onSetLoading,
+  onAddDocument,
   onGenerateTitle,
 }: ChatMainProps) {
   // Pass the conversation-specific loading state and updater directly to our custom hook
-  const { state, sendMessage } = useChat(
-    activeConversationId,
+  const { state, sendMessage } = useChat({
+    conversationId: activeConversationId,
     messages,
     isLoading,
-    onUpdateMessages,
-    onSetLoading,
+    chunks,
+    setMessages: onUpdateMessages,
+    setLoading: onSetLoading,
+    onAddDocument,
     onGenerateTitle,
-  );
+  });
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0 w-full">

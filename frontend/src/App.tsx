@@ -12,9 +12,16 @@ export default function App() {
     selectConversation,
     deleteConversation,
     updateActiveMessages,
+    addDocumentToActive,
     setConversationLoading,
     generateConversationTitle,
   } = useConversations();
+
+  // Every document attached to this conversation contributes its chunks to
+  // retrieval - doesn't matter which upload turn they came from
+  const activeChunks = activeConversation.documents.flatMap(
+    (doc) => doc.chunks,
+  );
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
@@ -33,8 +40,10 @@ export default function App() {
           activeConversationId={activeId} // <-- 2. Send activeId down
           messages={activeConversation.messages}
           isLoading={!!activeConversation.isLoading} // <-- 3. Pass conversation-bound loading state
+          chunks={activeChunks}
           onUpdateMessages={updateActiveMessages}
           onSetLoading={setConversationLoading} // <-- 4. Pass down the loader updater
+          onAddDocument={addDocumentToActive}
           onGenerateTitle={generateConversationTitle}
         />
       </div>

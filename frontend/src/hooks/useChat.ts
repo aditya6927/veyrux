@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Message } from "@/types";
+import type { Chunk, ParsedFile } from "@/types/document";
 import { analyzeFile, sendChatMessage } from "@/services/api";
 
 interface SendMessageOptions {
@@ -7,14 +8,27 @@ interface SendMessageOptions {
   files: File[];
 }
 
-export function useChat(
-  activeConversationId: string,
-  messages: Message[],
-  isLoading: boolean,
-  setMessages: (updater: (prev: Message[]) => Message[]) => void,
-  setLoading: (id: string, loading: boolean) => void,
-  onGenerateTitle?: (id: string, firstMessage: string) => void,
-) {
+interface UseChatOptions {
+  conversationId: string;
+  messages: Message[];
+  isLoading: boolean;
+  chunks: Chunk[];
+  setMessages: (updater: (prev: Message[]) => Message[]) => void;
+  setLoading: (id: string, loading: boolean) => void;
+  onAddDocument: (document: ParsedFile) => void;
+  onGenerateTitle?: (id: string, firstMessage: string) => void;
+}
+
+export function useChat({
+  conversationId,
+  messages,
+  isLoading,
+  chunks,
+  setMessages,
+  setLoading,
+  onAddDocument,
+  onGenerateTitle,
+}: UseChatOptions) {
   const [error, setError] = useState<string | null>(null);
 
   function addMessage(role: Message["role"], content: string) {
@@ -34,8 +48,8 @@ export function useChat(
 
     const isFirstMessage = messages.length === 0;
 
-    // Set loading for *only* this specific active conversation
-    setLoading(activeConversationId, true);
+    // Set loading for the specific active conversation
+    setLoading(conversationId, true);
     setError(null);
 
     let userMessageContent = message;
@@ -48,42 +62,43 @@ export function useChat(
 
     addMessage("user", userMessageContent);
 
-    // If it's the first message, trigger title generation in the background
+    // Trigger title generation in the background on the first message turn
     if (isFirstMessage && onGenerateTitle && message.trim()) {
-      onGenerateTitle(activeConversationId, message);
+      onGenerateTitle(conversationId, message);
     }
 
     try {
       let result = "";
 
       if (files.length > 0) {
-        // 1. Send the file to be extracted into raw text by the backend parser
-        const extractedDocumentText = await analyzeFile(files[0]);
+        // Parse, chunk, and embed the file, banking chunks on the conversation
+        const { result: summary, chunks: newChunks } = await analyzeFile(
+          files[0],
+        );
+        onAddDocument({ filename: files[0].name, chunks: newChunks });
 
-        // 2. Wrap that extracted text into a structured prompt context block
-        const contextualMessage = `[Document Context Attached]\n${extractedDocumentText}\n\n[End of Context]\nBased on the document context provided above, please handle the following request: ${message || "Provide an overall detailed summary of this file."}`;
-
-        // 3. Send the contextual text stream straight to the conversational history chat endpoint
-        result = await sendChatMessage({
-          message: contextualMessage,
-          files: [], // Clear out since it's already contextualized
-          history: messages,
-        });
+        if (message.trim()) {
+          // Answer specific questions grounded in the context chunks
+          result = await sendChatMessage({
+            message,
+            history: messages,
+            chunks: [...chunks, ...newChunks],
+          });
+        } else {
+          // Default to the full document summary when no specific question is asked
+          result = summary;
+        }
       } else {
-        // Standard text interaction pipeline
-        result = await sendChatMessage({
-          message,
-          files,
-          history: messages,
-        });
+        // Standard text turn grounded in the existing uploaded context chunks
+        result = await sendChatMessage({ message, history: messages, chunks });
       }
 
       addMessage("assistant", result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
-      // Turn off loading specifically for this conversation
-      setLoading(activeConversationId, false);
+      // Clear loading specifically for this conversation
+      setLoading(conversationId, false);
     }
   }
 
