@@ -71,11 +71,18 @@ export function useChat({
       let result = "";
 
       if (files.length > 0) {
-        // Parse, chunk, and embed the file, banking chunks on the conversation
-        const { result: summary, chunks: newChunks } = await analyzeFile(
-          files[0],
+        // Parse, chunk, and embed every attached file,
+        // banking each one's chunks on the conversation
+
+        const analyses = await Promise.all(
+          files.map((file) => analyzeFile(file)),
         );
-        onAddDocument({ filename: files[0].name, chunks: newChunks });
+
+        analyses.forEach((analysis, i) =>
+          onAddDocument({ filename: files[i].name, chunks: analysis.chunks }),
+        );
+
+        const newChunks = analyses.flatMap((analyses) => analyses.chunks);
 
         if (message.trim()) {
           // Answer specific questions grounded in the context chunks
@@ -84,9 +91,14 @@ export function useChat({
             history: messages,
             chunks: [...chunks, ...newChunks],
           });
-        } else {
+        } else if (analyses.length === 1) {
           // Default to the full document summary when no specific question is asked
-          result = summary;
+          result = analyses[0].result;
+        } else {
+          // Multiples file, no question asked: show each summary labeled by filename
+          result = analyses
+            .map((analysis, i) => `## ${files[i].name}\n\n${analysis.result}`)
+            .join("\n\n---\n\n");
         }
       } else {
         // Standard text turn grounded in the existing uploaded context chunks
