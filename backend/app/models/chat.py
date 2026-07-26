@@ -16,3 +16,4 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
     chunks: Optional[list[Chunk]] = None
+    grounding_chunks: Optional[list[Chunk]] = None # always include

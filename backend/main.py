@@ -42,7 +42,7 @@ async def analyze_file(file: UploadFile = File(...)):
 @app.post('/chat')
 async def chat_endpoint(request: ChatRequest):
     try:
-        response = gemini_service.chat(request.messages, request.chunks)
+        response = gemini_service.chat(request.messages, request.chunks, request.grounding_chunks)
     except ServiceError as e:
         raise HTTPException(status_code = 502, detail = f'Model gateway error: {e.message}')
     except Exception as e:

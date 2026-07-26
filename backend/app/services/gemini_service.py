@@ -55,7 +55,12 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
         return 0.0
     return dot / (norm_a * norm_b)
 
-def _top_k_chunks(chunks: list[Chunk], query_embedding: list[float], k: int = TOP_K_CHUNKS) -> list[Chunk]:
+def _top_k_chunks(
+        chunks: list[Chunk],
+        query_embedding:list[float],
+        k: int = TOP_K_CHUNKS
+    ) -> list[Chunk]:
+
     scored = [(c, _cosine_similarity(c.embedding, query_embedding)) for c in chunks]
     scored.sort(key=lambda pair: pair[1], reverse=True)
     return [c for c, _score in scored[:k]]
@@ -132,14 +137,22 @@ class GeminiService:
             for (num, text), embedding in zip(page_texts, embeddings)
         ]
 
-    def chat(self, messages: list[ChatMessage], chunks: Optional[list[Chunk]] = None) -> str:
+    def chat(
+            self,
+            messages: list[ChatMessage],
+            chunks: Optional[list[Chunk]] = None,
+            grounding_chunks: Optional[list[Chunk]] = None
+        ) -> str:
         try:
-            relevant_chunks: list[Chunk] = []
+            # grounding_chunks are from files attached this turn — always included,
+            # never filtered. chunks are banked from earlier turns — searched, since
+            # sending every chunk from every past document would bloat the prompt.
+            relevant_chunks: list[Chunk] = list(grounding_chunks or [])
             if chunks and messages:
                 query_embedding = self.embed_texts(
                     [messages[-1].content], task_type="RETRIEVAL_QUERY"
                 )[0]
-                relevant_chunks = _top_k_chunks(chunks, query_embedding)
+                relevant_chunks += _top_k_chunks(chunks, query_embedding)
 
             contents = []
             for i, msg in enumerate(messages):

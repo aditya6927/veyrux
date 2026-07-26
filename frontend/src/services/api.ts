@@ -36,12 +36,14 @@ interface ChatRequest {
   message: string;
   history: Message[];
   chunks: Chunk[];
+  groundingChunks?: Chunk[];
 }
 
 export async function sendChatMessage({
   message,
   history,
   chunks,
+  groundingChunks = [],
 }: ChatRequest): Promise<string> {
   // Construct the full history array including the fresh message turn
   const fullHistory = [...history, { role: "user", content: message }];
@@ -56,6 +58,8 @@ export async function sendChatMessage({
         .map((m) => ({ role: m.role, content: m.content })),
       // Omit entirely when empty, matching the backend's Optional[list[Chunk]] = None
       chunks: chunks.length > 0 ? chunks : undefined,
+      grounding_chunks:
+        groundingChunks.length > 0 ? groundingChunks : undefined,
     }),
   });
 

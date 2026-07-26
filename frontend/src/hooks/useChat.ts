@@ -82,14 +82,17 @@ export function useChat({
           onAddDocument({ filename: files[i].name, chunks: analysis.chunks }),
         );
 
-        const newChunks = analyses.flatMap((analyses) => analyses.chunks);
+        const newChunks = analyses.flatMap((analysis) => analysis.chunks);
 
         if (message.trim()) {
-          // Answer specific questions grounded in the context chunks
+          // Ground the answer in this turn's files in full (never filtered —
+          // they were just attached, so they're relevant by definition), plus
+          // anything from earlier turns worth retrieving
           result = await sendChatMessage({
             message,
             history: messages,
-            chunks: [...chunks, ...newChunks],
+            chunks,
+            groundingChunks: [...newChunks],
           });
         } else if (analyses.length === 1) {
           // Default to the full document summary when no specific question is asked
