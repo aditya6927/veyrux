@@ -4,6 +4,7 @@ from app.parsers import parser
 from app.services.gemini_service import gemini_service
 from app.exceptions import FileTooLarge, CorruptedFile, UnsupportedFileType, ServiceError
 from app.models.chat import ChatRequest
+import asyncio
 
 app = FastAPI(title = 'Veyrux')
 
@@ -23,8 +24,10 @@ def root():
 async def analyze_file(file: UploadFile = File(...)):
     try:
         doc = await parser(file)
-        response = gemini_service.analyze_content(doc)
-        chunks = gemini_service.chunk_document(doc)
+        response, chunks = await asyncio.gather(
+            asyncio.to_thread(gemini_service.analyze_content, doc),
+            asyncio.to_thread(gemini_service.chunk_document, doc)
+        )
 
     except FileTooLarge as e:
         raise HTTPException(status_code = 413, detail = e.message)
