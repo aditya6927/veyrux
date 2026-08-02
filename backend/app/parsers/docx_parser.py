@@ -6,7 +6,7 @@ from fastapi import UploadFile
 from app.parsers.utils import _process_and_compress_image
 
 from app.exceptions import CorruptedFile
-from app.models.document import (
+from app.schemas.document import (
     ParsedDocument,
     DocumentType,
     ContentType,

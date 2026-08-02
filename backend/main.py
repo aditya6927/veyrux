@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.parsers import parser
 from app.services.gemini_service import gemini_service
 from app.exceptions import FileTooLarge, CorruptedFile, UnsupportedFileType, ServiceError
-from app.models.chat import ChatRequest
+from app.schemas.chat import ChatRequest
 import asyncio
 
 app = FastAPI(title = 'Veyrux')

@@ -4,14 +4,14 @@ from app.config import settings
 from typing import Any, Optional
 from app.exceptions import ServiceError
 from app.prompts import analyze, chat
-from app.models.document import (
+from app.schemas.document import (
     ParsedDocument,
     ContentType,
     ContentBlock,
     Page,
     Chunk
 )
-from app.models.chat import ChatMessage, ChatRole
+from app.schemas.chat import ChatMessage, ChatRole
 
 EMBEDDING_MODEL = "gemini-embedding-001"
 EMBEDDING_DIMENSIONS = 768
@@ -90,7 +90,7 @@ class GeminiService:
         try:
             payload = self._build_payload(doc)
 
-            response = self.client.models.generate_content(
+            response = self.client.schemas.generate_content(
                 model=self.model,
                 contents=payload,
                 config=types.GenerateContentConfig(
@@ -107,7 +107,7 @@ class GeminiService:
 
     def embed_texts(self, texts: list[str], task_type: str) -> list[list[float]]:
         try:
-            response = self.client.models.embed_content(
+            response = self.client.schemas.embed_content(
                 model=EMBEDDING_MODEL,
                 contents=texts,
                 config=types.EmbedContentConfig(
@@ -177,7 +177,7 @@ class GeminiService:
                     )
                 )
 
-            response = self.client.models.generate_content(
+            response = self.client.schemas.generate_content(
                 model=self.model,
                 contents=contents,
                 config=types.GenerateContentConfig(

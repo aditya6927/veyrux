@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from enum import Enum
 from typing import Optional
-from app.models.document import Chunk
+from app.schemas.document import Chunk
 
 class ChatRole(str, Enum):
     USER = 'user'

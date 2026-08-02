@@ -13,7 +13,7 @@ from app.exceptions import (
     CorruptedFile,
 )
 
-# from app.models.document import ParsedDocument
+# from app.schemas.document import ParsedDocument
 
 
 MAX_SIZE_MB = 10

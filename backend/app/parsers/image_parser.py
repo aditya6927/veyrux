@@ -3,7 +3,7 @@ from PIL import Image
 from fastapi import UploadFile
 
 from app.exceptions import CorruptedFile
-from app.models.document import (
+from app.schemas.document import (
     ParsedDocument,
     DocumentType,
     ContentType,
