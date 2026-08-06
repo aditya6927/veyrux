@@ -90,7 +90,8 @@ class GeminiService:
         try:
             payload = self._build_payload(doc)
 
-            response = self.client.schemas.generate_content(
+            # Change self.client.schemas.generate_content to:
+            response = self.client.models.generate_content(
                 model=self.model,
                 contents=payload,
                 config=types.GenerateContentConfig(
@@ -107,7 +108,8 @@ class GeminiService:
 
     def embed_texts(self, texts: list[str], task_type: str) -> list[list[float]]:
         try:
-            response = self.client.schemas.embed_content(
+            # Change self.client.schemas.embed_content to:
+            response = self.client.models.embed_content(
                 model=EMBEDDING_MODEL,
                 contents=texts,
                 config=types.EmbedContentConfig(
@@ -177,7 +179,8 @@ class GeminiService:
                     )
                 )
 
-            response = self.client.schemas.generate_content(
+            # Change self.client.schemas.generate_content to:
+            response = self.client.models.generate_content(
                 model=self.model,
                 contents=contents,
                 config=types.GenerateContentConfig(

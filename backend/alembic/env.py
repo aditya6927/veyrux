@@ -4,6 +4,7 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import asyncio
 # import Base and metadata to enable autogenerate feature
 from app.db import Base
 from app.config import settings

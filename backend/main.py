@@ -4,17 +4,20 @@ from app.parsers import parser
 from app.services.gemini_service import gemini_service
 from app.exceptions import FileTooLarge, CorruptedFile, UnsupportedFileType, ServiceError
 from app.schemas.chat import ChatRequest
+from app.routers import conversations
 import asyncio
 
-app = FastAPI(title = 'Veyrux')
+app = FastAPI(title='Veyrux')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins       = ['http://localhost:5173'],
-    allow_credentials   = True,
-    allow_methods       = ['*'],
-    allow_headers       = ['*'],
+    allow_origins=['http://localhost:5173'],
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
+
+app.include_router(conversations.router)
 
 @app.get('/')
 def root():
@@ -30,25 +33,27 @@ async def analyze_file(file: UploadFile = File(...)):
         )
 
     except FileTooLarge as e:
-        raise HTTPException(status_code = 413, detail = e.message)
+        raise HTTPException(status_code=413, detail=e.message)
     except UnsupportedFileType as e:
-        raise HTTPException(status_code = 400, detail = e.message)
+        raise HTTPException(status_code=400, detail=e.message)
     except CorruptedFile as e:
-        raise HTTPException(status_code = 422, detail = e.message)
+        raise HTTPException(status_code=422, detail=e.message)
     except ServiceError as e:
-        raise HTTPException(status_code = 502, detail = f'Model gateway error: {e.message}')
+        raise HTTPException(status_code=502, detail=f'Model gateway error: {e.message}')
     except Exception as e:
-        raise HTTPException(status_code = 500, detail = f'Critical interal failure: {str(e)}')
+        raise HTTPException(status_code=500, detail=f'Critical internal failure: {str(e)}')
 
     return {"result": response, "chunks": chunks}
 
 @app.post('/chat')
 async def chat_endpoint(request: ChatRequest):
     try:
-        response = gemini_service.chat(request.messages, request.chunks, request.grounding_chunks)
+        response = await asyncio.to_thread(
+            gemini_service.chat, request.messages, request.chunks, request.grounding_chunks
+        )
     except ServiceError as e:
-        raise HTTPException(status_code = 502, detail = f'Model gateway error: {e.message}')
+        raise HTTPException(status_code=502, detail=f'Model gateway error: {e.message}')
     except Exception as e:
-        raise HTTPException(status_code = 500, detail = f'Critical internal failure: {str(e)}')
+        raise HTTPException(status_code=500, detail=f'Critical internal failure: {str(e)}')
     
     return {"result": response}

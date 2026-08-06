@@ -29,9 +29,12 @@ class Conversation(Base):
         DateTime(timezone=True),
         server_default=text("now()"),
     )
+
+    # timezone-aware timestamps with db-level default and automatic update trigger
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=text("now()"),
+        onupdate=text("now()"),
     )
 
     # cascade delete removes child messages and documents when a conversation is deleted
