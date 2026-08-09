@@ -164,6 +164,11 @@ interface SendConversationMessageOptions {
   groundingChunks?: Chunk[];
 }
 
+interface SendMessageResponsePayload {
+  user_message: BackendMessage;
+  assistant_message: BackendMessage;
+}
+
 /**
  * Sends a user message to a specific conversation endpoint.
  * Backend handles history aggregation and response generation.
@@ -173,7 +178,10 @@ export async function sendConversationMessage({
   content,
   chunks = [],
   groundingChunks = [],
-}: SendConversationMessageOptions): Promise<Message> {
+}: SendConversationMessageOptions): Promise<{
+  userMessage: Message;
+  assistantMessage: Message;
+}> {
   const response = await fetch(
     `${API_BASE}/conversations/${conversationId}/messages`,
     {
@@ -195,7 +203,10 @@ export async function sendConversationMessage({
     throw new Error(errorData.detail || "Failed to send message");
   }
 
-  const data: BackendMessage = await response.json();
+  const data: SendMessageResponsePayload = await response.json();
 
-  return mapMessage(data);
+  return {
+    userMessage: mapMessage(data.user_message),
+    assistantMessage: mapMessage(data.assistant_message),
+  };
 }
