@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Message } from "@/types";
 import type { Chunk, ParsedFile } from "@/types/document";
-import { analyzeFile, sendChatMessage } from "@/services/api";
+import { analyzeFile, sendConversationMessage } from "@/services/api";
 
 interface SendMessageOptions {
   message: string;
@@ -31,94 +31,104 @@ export function useChat({
 }: UseChatOptions) {
   const [error, setError] = useState<string | null>(null);
 
-  function addMessage(role: Message["role"], content: string) {
-    const newMessage: Message = {
-      id: crypto.randomUUID(),
-      role,
-      content,
-      timestamp: new Date(),
-    };
-    setMessages((prev) => [...prev, newMessage]);
-  }
-
   async function sendMessage(payload: SendMessageOptions) {
     const { message, files } = payload;
+    const trimmedMessage = message.trim();
 
-    if (!message.trim() && files.length === 0) return;
+    if (!trimmedMessage && files.length === 0) return;
 
-    const isFirstMessage = messages.length === 0;
+    const isFirstTurn = messages.length === 0;
 
-    // Set loading for the specific active conversation
     setLoading(conversationId, true);
     setError(null);
 
-    let userMessageContent = message;
-    if (files.length > 0) {
-      const fileNames = files.map((f) => `📄 ${f.name}`).join(", ");
-      userMessageContent = message
-        ? `${message}\n\n*Attached: ${fileNames}*`
-        : `Uploaded: ${fileNames}`;
-    }
-
-    addMessage("user", userMessageContent);
-
-    // Trigger title generation in the background on the first message turn
-    if (isFirstMessage && onGenerateTitle && message.trim()) {
-      onGenerateTitle(conversationId, message);
+    /**
+     * Trigger temporary frontend title generation on the first turn.
+     */
+    if (isFirstTurn && onGenerateTitle && trimmedMessage) {
+      onGenerateTitle(conversationId, trimmedMessage);
     }
 
     try {
-      let result = "";
-
       if (files.length > 0) {
-        // Parse, chunk, and embed every attached file,
-        // banking each one's chunks on the conversation
-
+        /**
+         * Analyze attached files via local pipeline.
+         */
         const analyses = await Promise.all(
           files.map((file) => analyzeFile(file)),
         );
 
         analyses.forEach((analysis, i) =>
-          onAddDocument({ filename: files[i].name, chunks: analysis.chunks }),
+          onAddDocument({
+            filename: files[i].name,
+            chunks: analysis.chunks,
+          }),
         );
 
         const newChunks = analyses.flatMap((analysis) => analysis.chunks);
+        const combinedChunks = [...chunks, ...newChunks];
 
-        if (message.trim()) {
-          // Ground the answer in this turn's files in full (never filtered —
-          // they were just attached, so they're relevant by definition), plus
-          // anything from earlier turns worth retrieving
-          result = await sendChatMessage({
-            message,
-            history: messages,
-            chunks,
-            groundingChunks: [...newChunks],
-          });
-        } else if (analyses.length === 1) {
-          // Default to the full document summary when no specific question is asked
-          result = analyses[0].result;
+        if (trimmedMessage) {
+          const { userMessage, assistantMessage } =
+            await sendConversationMessage({
+              conversationId,
+              content: trimmedMessage,
+              chunks: combinedChunks,
+              groundingChunks: newChunks,
+            });
+
+          setMessages((prev) => [...prev, userMessage, assistantMessage]);
         } else {
-          // Multiples file, no question asked: show each summary labeled by filename
-          result = analyses
-            .map((analysis, i) => `## ${files[i].name}\n\n${analysis.result}`)
-            .join("\n\n---\n\n");
+          /**
+           * Local document summary response for promptless file uploads.
+           */
+          const summaryText =
+            analyses.length === 1
+              ? analyses[0].result
+              : analyses
+                  .map(
+                    (analysis, i) =>
+                      `## ${files[i].name}\n\n${analysis.result}`,
+                  )
+                  .join("\n\n---\n\n");
+
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              content: summaryText,
+              timestamp: new Date(),
+            },
+          ]);
         }
       } else {
-        // Standard text turn grounded in the existing uploaded context chunks
-        result = await sendChatMessage({ message, history: messages, chunks });
-      }
+        /**
+         * Standard message turn. PostgreSQL handles message persistence.
+         */
+        const { userMessage, assistantMessage } = await sendConversationMessage(
+          {
+            conversationId,
+            content: trimmedMessage,
+            chunks,
+          },
+        );
 
-      addMessage("assistant", result);
+        setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
-      // Clear loading specifically for this conversation
       setLoading(conversationId, false);
     }
   }
 
   return {
-    state: { messages, isLoading, error },
+    state: {
+      messages,
+      isLoading,
+      error,
+    },
     sendMessage,
     clearError: () => setError(null),
   };
