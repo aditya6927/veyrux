@@ -47,3 +47,10 @@ class ChatSendMessageRequest(BaseModel):
     content: str
     chunks: Optional[list[Chunk]] = None
     grounding_chunks: Optional[list[Chunk]] = None
+
+
+class SendMessageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_message: MessageResponse
+    assistant_message: MessageResponse

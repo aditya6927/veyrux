@@ -11,7 +11,7 @@ from app.schemas.chat import (
     ChatRole,
     ChatSendMessageRequest,
     ConversationResponse,
-    MessageResponse,
+    SendMessageResponse,
 )
 from app.services.gemini_service import gemini_service
 from app.exceptions import ServiceError
@@ -46,7 +46,7 @@ async def get_conversation(
     return conversation
 
 
-@router.post("/{conversation_id}/messages", response_model=MessageResponse)
+@router.post("/{conversation_id}/messages", response_model=SendMessageResponse)
 async def send_message(
     conversation_id: uuid.UUID,
     request: ChatSendMessageRequest,
@@ -60,7 +60,7 @@ async def send_message(
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     # Save incoming user message
-    await msg_repo.create(
+    user_msg = await msg_repo.create(
         conversation_id=conversation_id,
         role=ChatRole.USER.value,
         content=request.content
@@ -93,7 +93,10 @@ async def send_message(
         content=response_text
     )
 
-    return assistant_msg
+    return SendMessageResponse(
+        user_message=user_msg,
+        assistant_message=assistant_msg
+    )
 
 
 @router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
