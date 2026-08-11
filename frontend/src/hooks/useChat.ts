@@ -1,6 +1,8 @@
 import { useState } from "react";
+
 import type { Message } from "@/types";
 import type { Chunk, ParsedFile } from "@/types/document";
+
 import { analyzeFile, sendConversationMessage } from "@/services/api";
 
 interface SendMessageOptions {
@@ -33,6 +35,7 @@ export function useChat({
 
   async function sendMessage(payload: SendMessageOptions) {
     const { message, files } = payload;
+
     const trimmedMessage = message.trim();
 
     if (!trimmedMessage && files.length === 0) return;
@@ -42,7 +45,26 @@ export function useChat({
     setLoading(conversationId, true);
     setError(null);
 
-    /**
+    /*
+     * Show the user's message immediately.
+     *
+     * This is temporary. Once the backend responds, it is replaced
+     * with the actual database-backed user message.
+     */
+    const temporaryUserMessage: Message | null = trimmedMessage
+      ? {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: trimmedMessage,
+          timestamp: new Date(),
+        }
+      : null;
+
+    if (temporaryUserMessage) {
+      setMessages((prev) => [...prev, temporaryUserMessage]);
+    }
+
+    /*
      * Trigger temporary frontend title generation on the first turn.
      */
     if (isFirstTurn && onGenerateTitle && trimmedMessage) {
@@ -51,7 +73,7 @@ export function useChat({
 
     try {
       if (files.length > 0) {
-        /**
+        /*
          * Analyze attached files via local pipeline.
          */
         const analyses = await Promise.all(
@@ -77,9 +99,17 @@ export function useChat({
               groundingChunks: newChunks,
             });
 
-          setMessages((prev) => [...prev, userMessage, assistantMessage]);
+          /*
+           * Replace the temporary user message with the real
+           * PostgreSQL-backed message and append the assistant response.
+           */
+          setMessages((prev) => [
+            ...prev.filter((msg) => msg.id !== temporaryUserMessage?.id),
+            userMessage,
+            assistantMessage,
+          ]);
         } else {
-          /**
+          /*
            * Local document summary response for promptless file uploads.
            */
           const summaryText =
@@ -103,8 +133,9 @@ export function useChat({
           ]);
         }
       } else {
-        /**
-         * Standard message turn. PostgreSQL handles message persistence.
+        /*
+         * Standard message turn.
+         * PostgreSQL handles message persistence.
          */
         const { userMessage, assistantMessage } = await sendConversationMessage(
           {
@@ -114,9 +145,26 @@ export function useChat({
           },
         );
 
-        setMessages((prev) => [...prev, userMessage, assistantMessage]);
+        /*
+         * Replace the temporary user message with the real
+         * database-backed user message and append the assistant response.
+         */
+        setMessages((prev) => [
+          ...prev.filter((msg) => msg.id !== temporaryUserMessage?.id),
+          userMessage,
+          assistantMessage,
+        ]);
       }
     } catch (err) {
+      /*
+       * The backend request failed, so remove the temporary message.
+       */
+      if (temporaryUserMessage) {
+        setMessages((prev) =>
+          prev.filter((msg) => msg.id !== temporaryUserMessage.id),
+        );
+      }
+
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(conversationId, false);
