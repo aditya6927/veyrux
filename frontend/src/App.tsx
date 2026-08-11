@@ -8,6 +8,7 @@ export default function App() {
     conversations,
     activeId,
     activeConversation,
+    isLoading,
     createConversation,
     selectConversation,
     deleteConversation,
@@ -17,8 +18,17 @@ export default function App() {
     generateConversationTitle,
   } = useConversations();
 
+  // Wait for conversations to load before accessing activeConversation.
+  if (isLoading || !activeConversation || !activeId) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background text-foreground">
+        Loading...
+      </div>
+    );
+  }
+
   // Every document attached to this conversation contributes its chunks to
-  // retrieval - doesn't matter which upload turn they came from
+  // retrieval - doesn't matter which upload turn they came from.
   const activeChunks = activeConversation.documents.flatMap(
     (doc) => doc.chunks,
   );
@@ -30,19 +40,19 @@ export default function App() {
         activeConversationID={activeId}
         onSelectChat={selectConversation}
         onNewChat={createConversation}
-        onDeleteChat={deleteConversation} // <-- 1. Exposing deletion to Sidebar
+        onDeleteChat={deleteConversation}
       />
 
       <div className="flex-1 flex flex-col min-w-0 h-full">
         <Header />
 
         <ChatMain
-          activeConversationId={activeId} // <-- 2. Send activeId down
+          activeConversationId={activeId}
           messages={activeConversation.messages}
-          isLoading={!!activeConversation.isLoading} // <-- 3. Pass conversation-bound loading state
+          isLoading={!!activeConversation.isLoading}
           chunks={activeChunks}
           onUpdateMessages={updateActiveMessages}
-          onSetLoading={setConversationLoading} // <-- 4. Pass down the loader updater
+          onSetLoading={setConversationLoading}
           onAddDocument={addDocumentToActive}
           onGenerateTitle={generateConversationTitle}
         />
