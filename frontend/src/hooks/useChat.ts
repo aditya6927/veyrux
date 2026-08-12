@@ -46,7 +46,7 @@ export function useChat({
     setError(null);
 
     /*
-     * Show the user's message immediately.
+     * Show user message immediately.
      *
      * This is temporary. Once the backend responds, it is replaced
      * with the actual database-backed user message.
@@ -74,16 +74,21 @@ export function useChat({
     try {
       if (files.length > 0) {
         /*
-         * Analyze attached files via local pipeline.
+         * Analyze attached files via pipeline with active conversation context.
          */
         const analyses = await Promise.all(
-          files.map((file) => analyzeFile(file)),
+          files.map((file) => analyzeFile(file, conversationId)),
         );
 
         analyses.forEach((analysis, i) =>
           onAddDocument({
-            filename: files[i].name,
+            id: analysis.document.id,
+            filename: analysis.document.filename ?? files[i].name,
             chunks: analysis.chunks,
+            mimeType: analysis.document.mime_type,
+            documentType: analysis.document.document_type,
+            metadata: analysis.document.metadata,
+            createdAt: new Date(analysis.document.created_at),
           }),
         );
 
@@ -100,8 +105,8 @@ export function useChat({
             });
 
           /*
-           * Replace the temporary user message with the real
-           * PostgreSQL-backed message and append the assistant response.
+           * Replace temporary user message with real PostgreSQL-backed
+           * message and append assistant response.
            */
           setMessages((prev) => [
             ...prev.filter((msg) => msg.id !== temporaryUserMessage?.id),
@@ -146,8 +151,8 @@ export function useChat({
         );
 
         /*
-         * Replace the temporary user message with the real
-         * database-backed user message and append the assistant response.
+         * Replace temporary user message with real database-backed
+         * message and append assistant response.
          */
         setMessages((prev) => [
           ...prev.filter((msg) => msg.id !== temporaryUserMessage?.id),
@@ -157,7 +162,7 @@ export function useChat({
       }
     } catch (err) {
       /*
-       * The backend request failed, so remove the temporary message.
+       * Backend request failed, so remove temporary message.
        */
       if (temporaryUserMessage) {
         setMessages((prev) =>
