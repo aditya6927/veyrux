@@ -4,7 +4,7 @@ export type MessageRole = "user" | "assistant" | "system";
 
 export interface Message {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: MessageRole;
   content: string;
   timestamp: Date;
   context?: string;
@@ -20,6 +20,6 @@ export interface Conversation {
   id: string;
   title: string;
   messages: Message[];
-  documents: ParsedFile[]; // Track multiple files per conversation cleanly
-  isLoading?: boolean; // Handles conversation-specific loaders
+  documents: ParsedFile[]; // Stores full database-backed document objects per conversation
+  isLoading?: boolean;
 }
