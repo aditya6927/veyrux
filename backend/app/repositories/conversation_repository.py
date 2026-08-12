@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.conversation import Conversation
+from app.models.document import Document
 
 
 class ConversationRepository:
@@ -26,17 +27,27 @@ class ConversationRepository:
 
         result = await self.db.execute(
             select(Conversation)
-            .options(selectinload(Conversation.messages))
+            .options(
+                selectinload(Conversation.messages),
+                selectinload(Conversation.documents)
+                    .selectinload(Document.chunks),
+            )
             .where(Conversation.id == conversation_id)
         )
+
         return result.scalar_one_or_none()
 
     async def list_all(self) -> Sequence[Conversation]:
         result = await self.db.execute(
             select(Conversation)
-            .options(selectinload(Conversation.messages))
+            .options(
+                selectinload(Conversation.messages),
+                selectinload(Conversation.documents)
+                    .selectinload(Document.chunks),
+            )
             .order_by(Conversation.created_at.desc())
         )
+
         return result.scalars().all()
 
     async def delete(self, conversation: Conversation) -> None:
