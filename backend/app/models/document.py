@@ -46,8 +46,8 @@ class Document(Base):
     metadata_: Mapped[dict] = mapped_column(
         "metadata",
         JSONB,
-        server_default=text("'{}'::jsonb"),
         nullable=False,
+        server_default=text("'{}'::jsonb"),
     )
 
     created_at: Mapped[datetime] = mapped_column(
