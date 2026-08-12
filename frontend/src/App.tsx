@@ -49,6 +49,7 @@ export default function App() {
         <ChatMain
           activeConversationId={activeId}
           messages={activeConversation.messages}
+          documents={activeConversation.documents}
           isLoading={!!activeConversation.isLoading}
           chunks={activeChunks}
           onUpdateMessages={updateActiveMessages}
