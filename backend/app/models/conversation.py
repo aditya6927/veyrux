@@ -1,12 +1,16 @@
 import uuid
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.db import Base
+
+if TYPE_CHECKING:
+    from app.models.document import Document
 
 
 # represents a chat session holding messages and attached documents
@@ -43,6 +47,7 @@ class Conversation(Base):
         cascade="all, delete-orphan",
         order_by="Message.created_at",
     )
+
     documents: Mapped[list["Document"]] = relationship(
         back_populates="conversation",
         cascade="all, delete-orphan",
