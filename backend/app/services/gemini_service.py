@@ -1,51 +1,61 @@
+from typing import Any, Optional
 from google import genai
 from google.genai import types
+
 from app.config import settings
-from typing import Any, Optional
 from app.exceptions import ServiceError
 from app.prompts import analyze, chat
-from app.schemas.document import (
-    ParsedDocument,
-    ContentType,
-    ContentBlock,
-    Page,
-    Chunk
-)
 from app.schemas.chat import ChatMessage, ChatRole
+from app.schemas.document import (
+    Chunk,
+    ContentBlock,
+    ContentType,
+    Page,
+    ParsedDocument,
+)
 
 EMBEDDING_MODEL = "gemini-embedding-001"
 EMBEDDING_DIMENSIONS = 768
 TOP_K_CHUNKS = 5
 
+
 def _text_block(payload: list, block: ContentBlock) -> None:
-    if(block.text_content):
+    if block.text_content:
         payload.append(block.text_content)
+
 
 def _image_block(payload: list, block: ContentBlock) -> None:
-    if(block.byte_content and block.mime_type):
-        payload.append(types.Part.from_bytes(
-            data        = block.byte_content,
-            mime_type   = block.mime_type
-        ))
+    if block.byte_content and block.mime_type:
+        payload.append(
+            types.Part.from_bytes(
+                data=block.byte_content,
+                mime_type=block.mime_type,
+            )
+        )
+
 
 def _table_block(payload: list, block: ContentBlock) -> None:
-    if(block.text_content):
+    if block.text_content:
         payload.append(block.text_content)
 
+
 BLOCK_BUILDERS = {
-    ContentType.TEXT : _text_block,
+    ContentType.TEXT: _text_block,
     ContentType.IMAGE: _image_block,
     ContentType.TABLE: _table_block,
 }
 
+
 def _page_text(page: Page) -> str:
-    # Text-only extraction for embeddings - images can't be embedded by a text model
+    # Text-only extraction for embeddings
     parts = [
         block.text_content
         for block in page.blocks
-        if block.content_type in (ContentType.TEXT, ContentType.TABLE) and block.text_content
+        if block.content_type in (ContentType.TEXT, ContentType.TABLE)
+        and block.text_content
     ]
     return "\n".join(parts)
+
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
     dot = sum(x * y for x, y in zip(a, b))
@@ -55,21 +65,19 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
         return 0.0
     return dot / (norm_a * norm_b)
 
-def _top_k_chunks(
-        chunks: list[Chunk],
-        query_embedding:list[float],
-        k: int = TOP_K_CHUNKS
-    ) -> list[Chunk]:
 
+def _top_k_chunks(
+    chunks: list[Chunk], query_embedding: list[float], k: int = TOP_K_CHUNKS
+) -> list[Chunk]:
     scored = [(c, _cosine_similarity(c.embedding, query_embedding)) for c in chunks]
     scored.sort(key=lambda pair: pair[1], reverse=True)
     return [c for c, _score in scored[:k]]
 
+
 class GeminiService:
     def __init__(self):
-        # api key from config
-        self.client = genai.Client(api_key = settings.GEMINI_API_KEY)
-        self.model  = settings.MODEL_NAME
+        self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        self.model = settings.MODEL_NAME
 
     def _build_payload(self, doc: ParsedDocument) -> list[Any]:
         payload = []
@@ -90,7 +98,6 @@ class GeminiService:
         try:
             payload = self._build_payload(doc)
 
-            # Change self.client.schemas.generate_content to:
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=payload,
@@ -100,7 +107,7 @@ class GeminiService:
             )
 
             return response.text
-        
+
         except ServiceError:
             raise
         except Exception as e:
@@ -108,7 +115,6 @@ class GeminiService:
 
     def embed_texts(self, texts: list[str], task_type: str) -> list[list[float]]:
         try:
-            # Change self.client.schemas.embed_content to:
             response = self.client.models.embed_content(
                 model=EMBEDDING_MODEL,
                 contents=texts,
@@ -135,26 +141,41 @@ class GeminiService:
 
         source = doc.filename or "uploaded document"
         return [
-            Chunk(content=text, embedding=embedding, source=source, page_number=num)
-            for (num, text), embedding in zip(page_texts, embeddings)
+            Chunk(
+                content=text,
+                embedding=embedding,
+                source=source,
+                page_number=num,
+                chunk_index=idx,
+            )
+            for idx, ((num, text), embedding) in enumerate(zip(page_texts, embeddings))
         ]
 
     def chat(
-            self,
-            messages: list[ChatMessage],
-            chunks: Optional[list[Chunk]] = None,
-            grounding_chunks: Optional[list[Chunk]] = None
-        ) -> str:
+        self,
+        messages: list[ChatMessage],
+        chunks: Optional[list[Chunk]] = None,
+        grounding_chunks: Optional[list[Chunk]] = None,
+    ) -> str:
         try:
-            # grounding_chunks are from files attached this turn — always included,
-            # never filtered. chunks are banked from earlier turns — searched, since
-            # sending every chunk from every past document would bloat the prompt.
             relevant_chunks: list[Chunk] = list(grounding_chunks or [])
-            if chunks and messages:
+            last_message_content = messages[-1].content.strip() if messages else ""
+
+            # Vector similarity search over historical banked chunks if prompt has text
+            if chunks and last_message_content:
                 query_embedding = self.embed_texts(
-                    [messages[-1].content], task_type="RETRIEVAL_QUERY"
+                    [last_message_content], task_type="RETRIEVAL_QUERY"
                 )[0]
                 relevant_chunks += _top_k_chunks(chunks, query_embedding)
+
+            # Deduplicate excerpts by content & page
+            seen = set()
+            unique_chunks = []
+            for chunk in relevant_chunks:
+                identifier = (chunk.source, chunk.page_number, chunk.content)
+                if identifier not in seen:
+                    seen.add(identifier)
+                    unique_chunks.append(chunk)
 
             contents = []
             for i, msg in enumerate(messages):
@@ -162,14 +183,16 @@ class GeminiService:
                 is_model = msg.role == ChatRole.ASSISTANT
                 parts = []
 
-                if is_last and not is_model and relevant_chunks:
+                if is_last and not is_model and unique_chunks:
                     excerpts = "\n\n".join(
                         f"[From {c.source}, page {c.page_number}]\n{c.content}"
-                        for c in relevant_chunks
+                        for c in unique_chunks
                     )
-                    parts.append(types.Part(
-                        text=f"[RELEVANT DOCUMENT EXCERPTS]\n{excerpts}\n[END EXCERPTS]\n\n"
-                    ))
+                    parts.append(
+                        types.Part(
+                            text=f"[RELEVANT DOCUMENT EXCERPTS]\n{excerpts}\n[END EXCERPTS]\n\n"
+                        )
+                    )
 
                 parts.append(types.Part(text=msg.content))
                 contents.append(
@@ -179,7 +202,6 @@ class GeminiService:
                     )
                 )
 
-            # Change self.client.schemas.generate_content to:
             response = self.client.models.generate_content(
                 model=self.model,
                 contents=contents,
@@ -195,5 +217,6 @@ class GeminiService:
         except Exception as e:
             raise ServiceError(f"Gemini request failed: {str(e)}")
 
-# single reusable instance
+
+# Single reusable instance
 gemini_service = GeminiService()
