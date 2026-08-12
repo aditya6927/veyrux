@@ -1,26 +1,41 @@
 import type { Conversation, Message } from "@/types";
-import type { Chunk } from "@/types/document";
+import type { Chunk, Document } from "@/types/document";
 
 const API_BASE = import.meta.env.VITE_API_URL;
 
 /* -------------------------------------------------------------------------- */
-/*                               Document API                                 */
+/*                                Document API                                */
 /* -------------------------------------------------------------------------- */
 
+export interface BackendDocument {
+  id: string;
+  conversation_id: string;
+  filename: string | null;
+  mime_type: string;
+  document_type: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  chunks?: Chunk[];
+}
+
 /**
- * Handles file upload and analysis.
- * Hits the backend /analyze endpoint.
+ * Handles file upload, persistence, and analysis.
+ * Passes target conversation ID to tie uploaded file to session.
  */
 export async function analyzeFile(
   file: File,
-): Promise<{ result: string; chunks: Chunk[] }> {
+  conversationId: string,
+): Promise<{ result: string; chunks: Chunk[]; document: BackendDocument }> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch(`${API_BASE}/analyze`, {
-    method: "POST",
-    body: formData,
-  });
+  const response = await fetch(
+    `${API_BASE}/analyze?conversation_id=${encodeURIComponent(conversationId)}`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
 
   if (!response.ok) {
     const errorData = await response.json();
@@ -32,11 +47,12 @@ export async function analyzeFile(
   return {
     result: data.result,
     chunks: data.chunks ?? [],
+    document: data.document,
   };
 }
 
 /* -------------------------------------------------------------------------- */
-/*                           Conversation API                                 */
+/*                              Conversation API                              */
 /* -------------------------------------------------------------------------- */
 
 interface BackendMessage {
@@ -53,6 +69,7 @@ interface BackendConversation {
   created_at: string;
   updated_at: string;
   messages?: BackendMessage[];
+  documents?: BackendDocument[];
 }
 
 /**
@@ -68,15 +85,29 @@ function mapMessage(message: BackendMessage): Message {
 }
 
 /**
- * Maps backend conversation payload to the frontend Conversation model.
- * Defaults documents array to empty during initial persistence phase.
+ * Maps backend document structure to frontend Document format.
+ */
+function mapDocument(doc: BackendDocument): Document {
+  return {
+    id: doc.id,
+    filename: doc.filename ?? "Untitled Document",
+    mimeType: doc.mime_type,
+    documentType: doc.document_type,
+    metadata: doc.metadata ?? {},
+    createdAt: new Date(doc.created_at),
+    chunks: doc.chunks ?? [],
+  };
+}
+
+/**
+ * Maps backend conversation payload to frontend Conversation model.
  */
 function mapConversation(conversation: BackendConversation): Conversation {
   return {
     id: conversation.id,
     title: conversation.title,
     messages: (conversation.messages || []).map(mapMessage),
-    documents: [],
+    documents: (conversation.documents || []).map(mapDocument),
   };
 }
 
@@ -97,7 +128,7 @@ export async function getConversations(): Promise<Conversation[]> {
 }
 
 /**
- * Create a new conversation instance on the backend.
+ * Create a new conversation instance on backend storage.
  */
 export async function createConversation(
   title = "New Conversation",
@@ -120,7 +151,7 @@ export async function createConversation(
 }
 
 /**
- * Fetch details for a specific conversation, including message history.
+ * Fetch details for a specific conversation, including messages and attached documents.
  */
 export async function getConversation(
   conversationId: string,
@@ -154,7 +185,7 @@ export async function deleteConversation(
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              Message API                                   */
+/*                                 Message API                                */
 /* -------------------------------------------------------------------------- */
 
 interface SendConversationMessageOptions {
@@ -170,7 +201,7 @@ interface SendMessageResponsePayload {
 }
 
 /**
- * Sends a user message to a specific conversation endpoint.
+ * Sends a message to a specific conversation endpoint.
  * Backend handles history aggregation and response generation.
  */
 export async function sendConversationMessage({
