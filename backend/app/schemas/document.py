@@ -1,6 +1,10 @@
-from pydantic import BaseModel, Field, model_validator
+from datetime import datetime
+import uuid
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from enum import Enum
 from typing import Any
+from pydantic import AliasChoices
 
 class DocumentType(str, Enum):
     PDF   = 'pdf'
@@ -42,7 +46,31 @@ class ParsedDocument(BaseModel):
     metadata:      dict[str, Any] = Field(default_factory=dict)
 
 class Chunk(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     content: str
     embedding: list[float]
     source: str
     page_number: int
+    chunk_index: int
+
+class DocumentResponse(BaseModel):
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+    )
+
+    id: uuid.UUID
+    conversation_id: uuid.UUID
+    filename: str | None
+    mime_type: str
+    document_type: str
+
+    metadata: dict = Field(
+        default_factory=dict,
+        validation_alias=AliasChoices("metadata", "metadata_"),
+        serialization_alias="metadata",
+    )
+
+    created_at: datetime
+    chunks: list[Chunk] = Field(default_factory=list)
