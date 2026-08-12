@@ -3,12 +3,13 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 from enum import Enum
 from typing import Optional
+
 from app.schemas.document import Chunk
 
 
 class ChatRole(str, Enum):
-    USER = 'user'
-    ASSISTANT = 'assistant'
+    USER = "user"
+    ASSISTANT = "assistant"
 
 
 class ChatMessage(BaseModel):
@@ -33,6 +34,19 @@ class MessageResponse(BaseModel):
     created_at: datetime
 
 
+class DocumentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    conversation_id: uuid.UUID
+    filename: str | None
+    mime_type: str
+    document_type: str
+    metadata: dict = Field(default_factory=dict)
+    created_at: datetime
+    chunks: list[Chunk] = Field(default_factory=list)
+
+
 class ConversationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -41,6 +55,7 @@ class ConversationResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     messages: list[MessageResponse] = Field(default_factory=list)
+    documents: list[DocumentResponse] = Field(default_factory=list)
 
 
 class ChatSendMessageRequest(BaseModel):
